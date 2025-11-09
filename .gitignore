@@ -1,0 +1,108 @@
+# --------
+# Python
+# --------
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# MyPy / Pyre / Pytype
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# Cython debug symbols
+cython_debug/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Environments
+.env
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs / Editors
+.vscode/
+.idea/
+.ropeproject
+.spyderproject
+.spyproject
+
+# OS / macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+
+._*
+.Spotlight-V100
+.Trashes
+
+# MkDocs
+/site
+
+# Logs
+*.log
+
+# Project-specific
+# Ignore any folder named python3.10 anywhere (e.g., venv site-packages)
+**/python3.10/**
+
+# Ignore local virtualenvs that live in these paths
+nfl/
+nfl-props-model/nfl/
+
+# Local database artifacts
+/databases/*.db
+
+# Private keys / secrets
+kalshi_private_key.pem
+

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NFL Kalshi Trader</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="logo">🏈 NFL Kalshi Trader</h1>
+                <div class="header-controls">
+                    <button id="refresh-btn" class="refresh-btn">🔄 Refresh Markets</button>
+                    <div class="balance-display">
+                        <span class="balance-label">Balance:</span>
+                        <span id="account-balance" class="balance-amount">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main">
+            <section class="hero">
+                <h2 class="hero-title">NFL Game Contracts</h2>
+                <p class="hero-subtitle">Trade contracts on NFL game outcomes via Kalshi</p>
+            </section>
+
+            <div id="loading-spinner" class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Loading NFL markets from Kalshi...</p>
+            </div>
+
+            <section id="games-section" class="games-section" style="display: none;">
+                <div id="games-container" class="games-container">
+                    <!-- NFL games will be loaded here dynamically -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Trade Modal -->
+        <div id="trade-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-title">Place Trade</h3>
+                    <button class="close-btn" id="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="trade-details">
+                        <div class="trade-info">
+                            <p><strong>Market:</strong> <span id="trade-market"></span></p>
+                            <p><strong>Contract:</strong> <span id="trade-contract"></span></p>
+                            <p><strong>Current Price:</strong> <span id="trade-price"></span>¢</p>
+                        </div>
+                        
+                        <div class="trade-controls">
+                            <div class="input-group">
+                                <label for="trade-action">Action:</label>
+                                <select id="trade-action">
+                                    <option value="buy">Buy (Yes)</option>
+                                    <option value="sell">Sell (No)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="input-group">
+                                <label for="trade-quantity">Quantity:</label>
+                                <input type="number" id="trade-quantity" min="1" max="10000" value="1" step="1">
+                            </div>
+                            
+                            <div class="input-group">
+                                <label for="trade-price-input">Max Price (¢):</label>
+                                <input type="number" id="trade-price-input" min="1" max="99" value="50" step="1">
+                            </div>
+                        </div>
+                        
+                        <div class="trade-summary">
+                            <div class="summary-row">
+                                <span>Total Cost:</span>
+                                <span id="total-cost">$0.00</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>Max Profit:</span>
+                                <span id="max-profit">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="place-trade-btn" class="place-trade-btn">Place Trade</button>
+                    <button id="cancel-trade-btn" class="cancel-btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>&copy; 2024 NFL Kalshi Trader. Powered by Kalshi API</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

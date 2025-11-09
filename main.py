@@ -15,9 +15,8 @@ from pathlib import Path
 from datetime import datetime
 import pandas as pd
 import nfl_data_py as nfl
-import duckdb
 
-from config import CURRENT_SEASON, CURRENT_WEEK, HISTORICAL_YEARS, MODEL_DIR, DB_PATH
+from config import CURRENT_SEASON, CURRENT_WEEK, HISTORICAL_YEARS, MODEL_DIR
 from data_sources import NFLDataSources
 from feature_engineering import FeatureEngineer
 from modeling import ModelManager
@@ -35,68 +34,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def load_schedule_from_db(years: list[int]) -> pd.DataFrame | None:
-    """
-    Load game-level context from DuckDB (stadiums + games + weather),
-    aligned with the training pipeline.
-    Returns None on failure.
-    """
-    query = f"""
-    SELECT
-        g.game_id,
-        g.season,
-        g.week,
-        g.gameday,
-        g.home_team,
-        g.away_team,
-        g.spread_line,
-        g.total_line,
-        s.roof_type AS roof,
-        s.surface,
-        s.elevation_feet,
-        w.temperature_f AS temp,
-        w.apparent_temp_f,
-        w.wind_speed_mph AS wind,
-        w.wind_gust_mph,
-        w.precipitation_inches,
-        w.cloud_cover_pct,
-        w.humidity_pct
-    FROM historical_games AS g
-    JOIN stadiums AS s 
-      ON g.stadium_id = s.stadium_id
-     AND g.gameday::date >= s.effective_from
-     AND (g.gameday::date < s.effective_to OR s.effective_to IS NULL)
-    LEFT JOIN historical_weather AS w
-      ON g.game_id = w.game_id
-    WHERE g.season IN ({', '.join(str(y) for y in years)})
-    """
-    try:
-        con = duckdb.connect(DB_PATH, read_only=True)
-        try:
-            df = con.execute(query).df()
-        finally:
-            con.close()
-        if df is None or df.empty:
-            logger.warning("Schedule query returned no rows from DuckDB")
-            return None
-        return df
-    except Exception as e:
-        logger.warning(f"Failed to load schedule from DuckDB ({DB_PATH}): {e}")
-        return None
-
 def run_workflow(season: int, week: int) -> None:
     """
     Execute the complete betting workflow for a given season and week.
     
     Workflow steps:
-    1. Fetch historical player data (the "library")
-    2. Fetch live week roster data (the "newspaper")
-    3. Combine and engineer features from both datasets
-    4. Load pre-trained model
-    5. Generate predictions for target week
-    6. Fetch current market odds
-    7. Identify +EV betting opportunities
-    8. Save recommendations to log file
+    1. Fetch historical player data and current schedule
+    2. Engineer features from raw data
+    3. Load pre-trained model
+    4. Generate predictions for target week
+    5. Fetch current market odds
+    6. Identify +EV betting opportunities
+    7. Save recommendations to log file
     
     Args:
         season: NFL season year (e.g., 2024)
@@ -117,78 +66,41 @@ def run_workflow(season: int, week: int) -> None:
         print("\n✓ Data sources initialized")
         
         # =====================================================================
-        # STEP 2: FETCHING DATA (Library + Newspaper Strategy)
+        # STEP 2: FETCHING DATA
         # =====================================================================
         logger.info("Step 2: Fetching data")
         print("\n" + "=" * 80)
         print("FETCHING DATA")
         print("=" * 80)
-        
-        # Strategy: "Library" + "Newspaper" approach
-        # Library: Historical data for lookback features (rolling averages, etc.)
-        # Newspaper: Live roster data for who's playing this upcoming week
-        
-        # 1. Fetch HISTORICAL data (the "library")
+
+        # 1. Fetch historical data for lookback features
         logger.info(f"Fetching historical data for years: {HISTORICAL_YEARS}")
-        print(f"\n📚 Fetching historical data (the 'library')...")
-        print(f"   Years: {HISTORICAL_YEARS}")
-        
         historical_df = data_api.get_weekly_stats(years=HISTORICAL_YEARS, save=False)
-        
         if historical_df is None or historical_df.empty:
             raise ValueError("Failed to fetch historical weekly player data")
-        
         print(f"✓ Loaded {len(historical_df):,} historical player-week records")
-        print(f"  Seasons: {historical_df['season'].min()} - {historical_df['season'].max()}")
-        print(f"  Unique players: {historical_df['player_id'].nunique():,}")
-        
-        # 2. Fetch LIVE WEEK data (the "newspaper")
-        logger.info(f"Fetching live roster data for Season {season}, Week {week}")
-        print(f"\n🗞️  Fetching live week data (the 'newspaper')...")
-        print(f"   Season: {season}, Week: {week}")
-        
-        live_week_df = data_api.get_live_week_data_espn(season=season, week=week)
-        
+
+        # 2. Construct live data for the current prediction week
+        logger.info(f"Constructing live data for Season {season}, Week {week}")
+        live_week_df = data_api.get_live_week_data(season=season, week=week)
         if live_week_df is None or live_week_df.empty:
-            raise ValueError(
-                f"Failed to fetch live roster data for Season {season}, Week {week}.\n"
-                f"Possible reasons:\n"
-                f"  • No games scheduled for this week (bye week, playoffs)\n"
-                f"  • ESPN API is unavailable\n"
-                f"  • Week/season parameters are invalid"
-            )
-        
-        print(f"✓ Loaded {len(live_week_df):,} players for upcoming week")
-        print(f"  Teams playing: {live_week_df['team'].nunique()}")
-        print(f"  Games scheduled: {len(live_week_df['team'].unique()) // 2}")
-        print(f"  Position breakdown: {live_week_df['position'].value_counts().to_dict()}")
-        
-        # 3. Combine historical + live week data
-        logger.info("Combining historical and live week data")
-        print(f"\n🔗 Combining datasets...")
-        
+            raise ValueError(f"Failed to construct live data for Season {season}, Week {week}. Data may not be available yet.")
+        print(f"✓ Constructed live data for {len(live_week_df)} players for the upcoming week")
+
+        # 3. Combine historical and live data for feature engineering
         weekly_df = pd.concat([historical_df, live_week_df], ignore_index=True)
-        
-        print(f"✓ Combined dataset: {len(weekly_df):,} total records")
-        print(f"  Historical records: {len(historical_df):,}")
-        print(f"  Live week records: {len(live_week_df):,}")
-        
-        # 4. Fetch schedule data for all relevant years (from DuckDB to match training)
-        print(f"\n📅 Fetching schedule data (from DuckDB)...")
-        all_years = sorted(list(set(HISTORICAL_YEARS + [season])))
-        schedule_df = load_schedule_from_db(all_years)
-        if schedule_df is None:
-            print("⚠️  Schedule data unavailable from DuckDB; falling back to nfl-data-py")
-            try:
-                schedule_df = nfl.import_schedules(years=all_years)
-                logger.info(f"Loaded schedule data via nfl-data-py for years {min(all_years)}-{max(all_years)}")
-                print(f"✓ Loaded {len(schedule_df):,} games for schedule data (fallback)")
-            except Exception as e:
-                logger.warning(f"Failed to load schedule data via fallback: {e}")
-                logger.info("Continuing without schedule data (limited features)")
-                print(f"⚠️  Schedule data unavailable: {e}")
-                print("   Continuing with player stats only (limited features)")
-                schedule_df = None
+        logger.info(f"Combined historical and live data: {len(weekly_df)} total rows")
+
+        # 4. Fetch schedule data for all relevant years
+        try:
+            all_years = sorted(list(set(HISTORICAL_YEARS + [season])))
+            schedule_df = nfl.import_schedules(years=all_years)
+            logger.info(f"Loaded schedule data for years {min(all_years)}-{max(all_years)}")
+            print(f"✓ Loaded {len(schedule_df):,} total games for schedule data")
+        except Exception as e:
+            logger.warning(f"Failed to load schedule data: {e}")
+            logger.info("Continuing without schedule data (limited features)")
+            schedule_df = None
         
         # =====================================================================
         # STEP 3: ENGINEER FEATURES
@@ -200,7 +112,7 @@ def run_workflow(season: int, week: int) -> None:
         
         engineer = FeatureEngineer()
         
-        print("\n🔧 Generating features (this may take several minutes)...")
+        # Create features for all data (rolling windows need history)
         features_df = engineer.create_features(
             weekly_df=weekly_df,
             schedule_df=schedule_df,
@@ -211,16 +123,14 @@ def run_workflow(season: int, week: int) -> None:
             include_game_script=True
         )
         
-        print(f"✓ Feature engineering complete")
-        print(f"  Total rows: {len(features_df):,}")
-        print(f"  Total columns: {features_df.shape[1]}")
+        print(f"✓ Features engineered: {features_df.shape[1]} total features")
         
         # Filter to target week for prediction
         target_mask = (features_df['season'] == season) & (features_df['week'] == week)
         current_week_features = features_df[target_mask].copy()
         
         if current_week_features.empty:
-            raise ValueError(f"No data found for Season {season}, Week {week} after feature engineering")
+            raise ValueError(f"No data found for Season {season}, Week {week}")
         
         logger.info(f"Target week data: {len(current_week_features)} player-game records")
         print(f"✓ Filtered to Week {week}: {len(current_week_features)} player-game records")
@@ -238,7 +148,7 @@ def run_workflow(season: int, week: int) -> None:
         if not model_path.exists():
             raise FileNotFoundError(
                 f"Model file not found: {model_path}\n"
-                "Please train a model first using: python train.py"
+                "Please train a model first before running inference."
             )
         
         model_manager = ModelManager.load_manager(str(model_path))
@@ -250,7 +160,7 @@ def run_workflow(season: int, week: int) -> None:
         if hasattr(model_manager, 'feature_names') and model_manager.feature_names:
             print(f"  Features: {len(model_manager.feature_names)} (saved with model)")
         else:
-            print(f"  ⚠️  Model missing feature names (older version)")
+            print(f"  ⚠ Model missing feature names (older version)")
         
         # =====================================================================
         # STEP 5: GENERATE PREDICTIONS
@@ -274,18 +184,12 @@ def run_workflow(season: int, week: int) -> None:
                 )
             
             X_predict = current_week_features[feature_cols]
-            # Ensure dtypes compatible with LightGBM
-            if 'is_home' in X_predict.columns and X_predict['is_home'].dtype == 'O':
-                X_predict['is_home'] = X_predict['is_home'].fillna(False).astype(bool)
-            # Convert any remaining object columns that are numeric-like
-            for col in X_predict.select_dtypes(include=['object']).columns:
-                X_predict[col] = pd.to_numeric(X_predict[col], errors='ignore')
             print(f"✓ Using {len(feature_cols)} features from model definition")
             
         else:
             # Fallback: manually determine features (less robust)
             logger.warning("Model doesn't have saved feature names, using fallback method")
-            print("⚠️  Using fallback feature selection (consider retraining model)")
+            print("⚠ Using fallback feature selection (consider retraining model)")
             
             metadata_cols = ['player_id', 'player_display_name', 'player_name', 
                             'season', 'week', 'team', 'opponent', 'position']
@@ -311,25 +215,9 @@ def run_workflow(season: int, week: int) -> None:
         print(f"  Prediction columns: {predictions.shape[1]}")
         
         # Show sample predictions
-        print("\n📊 Sample predictions (first 3 players):")
+        print("\nSample predictions (first 3 players):")
         sample_cols = ['player_name'] + [col for col in predictions.columns if 'q0.5' in col][:3]
-        if all(col in predictions.columns for col in sample_cols):
-            print(predictions[sample_cols].head(3).to_string(index=False))
-        else:
-            print("  (Sample display unavailable - missing median columns)")
-        
-        # Persist predictions and live features for diagnostics
-        try:
-            Path('results').mkdir(parents=True, exist_ok=True)
-            pred_out = f'results/predictions_{season}_week_{week}.csv'
-            predictions.to_csv(pred_out, index=False)
-            logger.info(f"Saved predictions to {pred_out}")
-            # Save live features (full row context) to inspect spread/weather presence
-            live_feat_out = 'results/live_features_latest.parquet'
-            current_week_features.to_parquet(live_feat_out, index=False)
-            logger.info(f"Saved live features for diagnostics: {live_feat_out}")
-        except Exception as e:
-            logger.warning(f"Failed to save predictions or live features: {e}")
+        print(predictions[sample_cols].head(3).to_string(index=False))
         
         # =====================================================================
         # STEP 6: FETCH MARKET ODDS
@@ -343,7 +231,7 @@ def run_workflow(season: int, week: int) -> None:
         
         if market_odds is None or len(market_odds) == 0:
             logger.warning("No market odds available from API")
-            print("\n⚠️  WARNING: No market odds available from API")
+            print("\n⚠ WARNING: No market odds available from API")
             print("This could be because:")
             print("  1. The Odds API free tier doesn't include player props")
             print("  2. API key is not configured")
@@ -412,7 +300,7 @@ def run_workflow(season: int, week: int) -> None:
             print(f"Total Kelly allocation: {bets_df['kelly_fraction'].sum():.2%}")
             
         else:
-            print("\n⚠️  No bets found meeting criteria")
+            print("\n⚠ No bets found meeting criteria")
             print("This could mean:")
             print("  1. No significant edges detected this week")
             print("  2. Edge threshold too high (check config.py)")
@@ -518,7 +406,7 @@ Examples:
         run_workflow(season=args.season, week=args.week)
         sys.exit(0)
     except KeyboardInterrupt:
-        print("\n\n⚠️  Workflow interrupted by user")
+        print("\n\n⚠ Workflow interrupted by user")
         logger.warning("Workflow interrupted by user")
         sys.exit(1)
     except Exception as e:

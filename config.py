@@ -1,31 +1,10 @@
 # config.py
 import os
-from pathlib import Path
+from dotenv import load_dotenv
 from datetime import datetime, timedelta
 
-# Optional dotenv import (hardened)
-try:
-    from dotenv import load_dotenv  # type: ignore
-except Exception:  # pragma: no cover
-    def load_dotenv(*args, **kwargs):  # fallback no-op if python-dotenv not installed
-        return False
-
-# Load environment variables (from .env if present)
+# Load environment variables
 load_dotenv()
-
-# ----------------------------------------------------------------------------- 
-# Project / storage paths (Phase 0 additions)
-# -----------------------------------------------------------------------------
-# Root of this repository (directory containing this file)
-PROJECT_ROOT: Path = Path(__file__).resolve().parent
-
-# Optional external DuckDB path (used in later phases); defaults to local DB
-DUCKDB_PATH: Path = Path(os.getenv("DUCKDB_PATH", "databases/seamus.db")).expanduser()
-# Table names in DuckDB
-# Player-level joined table (from build_player_game.py). Defaults to "joined_games".
-DUCKDB_JOINED_TABLE: str = os.getenv("DUCKDB_JOINED_TABLE", "joined_games")
-# Games table (schedule/odds metadata). Defaults to "historical_games".
-DUCKDB_GAMES_TABLE: str = os.getenv("DUCKDB_GAMES_TABLE", "historical_games")
 
 # =============================================================================
 # API CONFIGURATION
@@ -63,7 +42,6 @@ API_RATE_LIMITS = {
 # API Base URLs
 API_URLS = {
     'espn_scoreboard': 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard',
-    'espn_roster': 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/{team_id}/roster',  # NEW: For live week roster data
     'espn_player_stats': 'http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/athletes/{player_id}/statistics',
     'espn_team_injuries': 'http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/teams/{team_id}/injuries',
     'openweather': 'http://api.openweathermap.org/data/2.5/weather',
@@ -106,7 +84,6 @@ PROCESSED_DATA_DIR = f'{DATA_DIR}/processed'
 MODEL_DIR = 'models'
 LOG_DIR = 'logs'
 KALSHI_DATA_DIR = f'{DATA_DIR}/kalshi'
-DB_PATH = 'databases/seamus.db' # Central database for analytical data
 
 # Create directories if they don't exist
 for directory in [DATA_DIR, RAW_DATA_DIR, PROCESSED_DATA_DIR, MODEL_DIR, LOG_DIR, KALSHI_DATA_DIR]:
@@ -129,17 +106,6 @@ DATA_FILES = {
 # PROP BETTING CONFIGURATION
 # =============================================================================
 
-# Public betting thresholds (consumed by betting.py)
-# These mirror MODEL_CONFIG defaults but are explicit for runtime checks.
-# Minimum edge required to place a bet (decimal, e.g., 0.03 = 3%)
-MIN_EDGE = 0.03
-# Minimum Kelly fraction to place a bet (decimal, e.g., 0.25 = 25% of Kelly)
-MIN_KELLY_FRACTION = 0.25
-# Maximum bet size as fraction of bankroll
-MAX_BET_SIZE = 0.05
-# Threshold to label bets as “strong” for reporting
-STRONG_EDGE_THRESHOLD = 0.05
-
 # Prop Types to Track (Traditional and Kalshi)
 PROP_TYPES = {
     'receiving': ['receiving_yards', 'receptions', 'receiving_tds', 'receiving_yards_ou'],
@@ -159,9 +125,6 @@ POSITION_PROPS = {
     'K': ['field_goals_made', 'extra_points_made'],
     'DEF': ['sacks', 'interceptions', 'fumble_recoveries']
 }
-
-# Positions to include in live week roster (relevant for betting)
-RELEVANT_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'K']  # NEW: Filter for positions we model
 
 # Model Parameters
 MODEL_CONFIG = {
@@ -213,33 +176,6 @@ NFL_TEAMS = {
     'TEN': {'name': 'Tennessee Titans', 'espn_id': '10', 'city': 'Nashville'},
     'WAS': {'name': 'Washington Commanders', 'espn_id': '28', 'city': 'Washington'}
 }
-
-# Team abbreviation aliases - ESPN sometimes uses different abbreviations
-TEAM_ABBREVIATION_ALIASES = {
-    'WSH': 'WAS',  # ESPN uses WSH, we use WAS for Washington Commanders
-    'LA': 'LAR',   # ESPN sometimes uses LA for Rams
-}
-
-def normalize_team_abbr(team_abbr: str) -> str:
-    """
-    Normalize team abbreviation to match our config.
-    Handles ESPN's different abbreviations (e.g., WSH -> WAS).
-    
-    Args:
-        team_abbr: Team abbreviation from ESPN or other source
-        
-    Returns:
-        Normalized team abbreviation that exists in NFL_TEAMS
-    """
-    if not team_abbr:
-        return team_abbr
-    
-    # Check if it's an alias
-    if team_abbr in TEAM_ABBREVIATION_ALIASES:
-        return TEAM_ABBREVIATION_ALIASES[team_abbr]
-    
-    # Return as-is if it's already valid
-    return team_abbr
 
 # Stadium Information (for weather)
 STADIUM_INFO = {
@@ -317,22 +253,6 @@ def is_dome_team(team_abbr):
 def is_kalshi_enabled():
     """Check if Kalshi integration is enabled"""
     return KALSHI_CONFIG.get('enabled', False)
-
-def get_espn_team_abbr_from_id(espn_id: str) -> str:
-    """
-    Get team abbreviation from ESPN ID (reverse lookup).
-    Useful when parsing ESPN API responses.
-    
-    Args:
-        espn_id: ESPN team ID (e.g., '12' for Kansas City)
-        
-    Returns:
-        Team abbreviation (e.g., 'KC') or None if not found
-    """
-    for abbr, team_info in NFL_TEAMS.items():
-        if team_info.get('espn_id') == str(espn_id):
-            return abbr
-    return None
 
 # Current week for convenience
 CURRENT_WEEK = get_current_week()

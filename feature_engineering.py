@@ -145,91 +145,95 @@ class FeatureEngineer:
     
     def add_matchup_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Add Defense vs Position (DvP) matchup features without leakage.
-        For each (season, opponent, position), compute expanding means of stats allowed
-        up to the prior week (shifted), then rank within (season, week, position).
+        Add Defense vs Position (DvP) matchup features.
+        
+        Calculates how difficult each opponent's defense is against the player's
+        position, using percentile ranks. Higher percentile = easier matchup
+        (defense allows more production).
+        
+        Args:
+            df: DataFrame with player stats, must include 'opponent' and 'position' columns
+            
+        Returns:
+            DataFrame with added matchup difficulty features
         """
-        required = {"season", "week", "opponent", "position"}
-        if not required.issubset(set(df.columns)):
-            logger.warning("Missing required columns for DvP; skipping matchup features")
+        if 'opponent' not in df.columns or 'position' not in df.columns:
+            logger.warning("Missing 'opponent' or 'position' columns, skipping matchup features")
             return df
-
-        logger.info("Adding matchup features (DvP) with leak-free expanding means")
+        
+        logger.info("Adding matchup features (DvP)")
+        
         df = df.copy()
-        # Ensure index alignment for boolean masking operations
-        df.reset_index(drop=True, inplace=True)
-
+        
+        # Define stat-to-position mappings for defensive rankings
         position_stats = {
-            "QB": ["passing_yards", "passing_tds"],
-            "RB": ["rushing_yards", "rushing_tds", "receiving_yards"],
-            "WR": ["receiving_yards", "receiving_tds", "receptions"],
-            "TE": ["receiving_yards", "receiving_tds", "receptions"],
+            'QB': ['passing_yards', 'passing_tds'],
+            'RB': ['rushing_yards', 'rushing_tds', 'receiving_yards'],
+            'WR': ['receiving_yards', 'receiving_tds', 'receptions'],
+            'TE': ['receiving_yards', 'receiving_tds', 'receptions']
         }
-
+        
+        # Track all position-specific columns we create
+        all_position_specific_cols = []
+        
+        # Create defensive profile for each stat-position combination
         for pos, stats in position_stats.items():
-            # Use NumPy boolean array to avoid index alignment issues
-            pos_mask = (df['position'] == pos).to_numpy()
-            if not pos_mask.any():
-                continue
             for stat in stats:
                 if stat not in df.columns:
                     continue
-
-                # Extract position data for defense-level aggregation
-                sub = df.loc[pos_mask, ["season", "week", "opponent", "position", stat]].copy()
-                # Aggregate to defense-week level BEFORE expanding mean to avoid intra-game leakage
-                defense_stats = (
-                    sub.groupby(["season", "week", "opponent", "position"], as_index=False)[stat]
-                       .sum()
-                       .sort_values(["season", "opponent", "position", "week"])
-                       .reset_index(drop=True)
+                
+                # Use position-specific column name to avoid merge conflicts
+                rank_col_name = f'matchup_{pos}_{stat}_rank'
+                all_position_specific_cols.append(rank_col_name)
+                
+                # Group by season, opponent, and position to calculate defense allowed
+                defensive_profile = (
+                    df[df['position'] == pos]
+                    .groupby(['season', 'opponent'])[stat]
+                    .mean()
+                    .reset_index()
+                    .rename(columns={stat: f'{stat}_allowed'})
                 )
-                # Expanding mean on defense level; shift(1) excludes current week contributions
-                defense_stats["_hist_mean"] = (
-                    defense_stats.groupby(["season", "opponent", "position"], group_keys=True)[stat]
-                                 .apply(lambda s: s.shift(1).expanding().mean())
-                                 .reset_index(level=[0, 1, 2], drop=True)
+                
+                # Convert to percentile ranks within each season
+                # Higher percentile = defense allows MORE (easier matchup)
+                defensive_profile[rank_col_name] = (
+                    defensive_profile.groupby('season')[f'{stat}_allowed']
+                    .rank(pct=True)
                 )
-                # Rank defenses within (season, week, position) — higher mean => easier matchup
-                defense_stats["_rank"] = (
-                    defense_stats.groupby(["season", "week", "position"])['_hist_mean']
-                                 .transform(lambda s: s.rank(pct=True))
-                )
-                rank_col = f"matchup_{pos}_{stat}_rank"
-                rank_df = defense_stats[["season", "week", "opponent", "position", "_rank"]].rename(columns={"_rank": rank_col})
-
+                
+                # Merge this position-specific rank back to main dataframe
                 df = df.merge(
-                    rank_df,
-                    on=["season", "week", "opponent", "position"],
-                    how="left",
+                    defensive_profile[['season', 'opponent', rank_col_name]],
+                    on=['season', 'opponent'],
+                    how='left'
                 )
-
-        # Coalesce per-position ranks into generic per-stat rank
+        
+        # Coalesce position-specific columns into generic stat columns
+        # For each stat, find the relevant rank based on player's position
         for stat in self.core_stats:
-            cols = [f"matchup_{p}_{stat}_rank" for p in ("QB", "RB", "WR", "TE") if f"matchup_{p}_{stat}_rank" in df.columns]
-            if cols:
-                df[f"matchup_{stat}_rank"] = df[cols].bfill(axis=1).iloc[:, 0]
-                df = df.drop(columns=cols)
-
-        rank_cols = [c for c in df.columns if c.startswith("matchup_") and c.endswith("_rank")]
-        for c in rank_cols:
-            df[c] = df[c].fillna(0.5)
-
-        # Validation: Week 1 should have no defensive history; ranks should be ~0.5
-        if not df.empty and 'week' in df.columns:
-            week1_mask = df['week'] == 1
-            for col in rank_cols[:3]:  # sample a few columns for quick check
-                week1_vals = df.loc[week1_mask, col].dropna()
-                if not week1_vals.empty:
-                    non_median = (week1_vals.sub(0.5).abs() > 0.01).sum()
-                    if non_median > 0:
-                        logger.warning(
-                            f"POTENTIAL LEAKAGE: {col} has {non_median}/{len(week1_vals)} Week 1 values != 0.5 (expected all 0.5 with no history)"
-                        )
-                    else:
-                        logger.info(f"Leakage check passed: {col} - Week 1 ranks ~0.5 as expected")
-
-        logger.info(f"Added {len(rank_cols)} leak-free matchup features")
+            # Find all position-specific rank columns for this stat
+            pos_specific_cols = [
+                f'matchup_{pos}_{stat}_rank' 
+                for pos in position_stats 
+                if stat in position_stats[pos] and f'matchup_{pos}_{stat}_rank' in df.columns
+            ]
+            
+            if pos_specific_cols:
+                # Use bfill to get the first non-null value across position-specific columns
+                # Each row will only have one non-null value (matching their position)
+                df[f'matchup_{stat}_rank'] = df[pos_specific_cols].bfill(axis=1).iloc[:, 0]
+                
+                # Drop the position-specific columns now that we have the generic one
+                df = df.drop(columns=pos_specific_cols)
+        
+        # Fill NaN values (e.g., first game of season) with median = 0.5
+        matchup_cols = [col for col in df.columns if col.startswith('matchup_') and col.endswith('_rank')]
+        for col in matchup_cols:
+            df[col] = df[col].fillna(0.5)
+        
+        logger.info(f"Added {len(matchup_cols)} matchup features")
+        
         return df
     
     def add_weather_features(self, df: pd.DataFrame) -> pd.DataFrame:

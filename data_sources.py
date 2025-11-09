@@ -114,6 +114,62 @@ class NFLDataSources:
             logger.error(f"❌ Error loading injury reports: {e}")
             return None
     
+    def get_live_week_data(self, season: int, week: int) -> Optional[pd.DataFrame]:
+        """
+        Constructs a DataFrame for an upcoming week using schedules and weekly rosters.
+        This avoids calling import_weekly_data for an in-progress season.
+        
+        Args:
+            season: The NFL season year.
+            week: The NFL week number.
+            
+        Returns:
+            A DataFrame formatted like the weekly_stats data, ready for feature engineering,
+            or None if data cannot be fetched.
+        """
+        logger.info(f"Constructing live data for Season {season}, Week {week} using rosters and schedules.")
+        try:
+            # 1. Get schedule for the specified week
+            sched = nfl.import_schedules(years=[season])
+            week_sched = sched[sched['week'] == week]
+            if week_sched.empty:
+                logger.error(f"No schedule found for Season {season}, Week {week}.")
+                return None
+
+            # 2. Get weekly rosters for the season
+            rosters = nfl.import_weekly_rosters(years=[season])
+            week_rosters = rosters[rosters['week'] == week]
+            if week_rosters.empty:
+                logger.error(f"No weekly rosters found for Season {season}, Week {week}.")
+                return None
+
+            # 3. Create a mapping of each team to their opponent for the week
+            home_opp_map = week_sched.set_index('home_team')['away_team']
+            away_opp_map = week_sched.set_index('away_team')['home_team']
+            opponent_map = pd.concat([home_opp_map, away_opp_map])
+            
+            # 4. Add opponent column to the rosters DataFrame
+            week_rosters = week_rosters.copy()
+            week_rosters['opponent'] = week_rosters['team'].map(opponent_map)
+
+            # 5. Select and format columns to match the weekly_stats DataFrame structure
+            # The performance stat columns (receiving_yards, etc.) will be correctly absent
+            live_week_df = week_rosters[[
+                'player_id', 'player_name', 'position', 'team', 
+                'season', 'week', 'opponent'
+            ]].copy()
+            
+            # Rename for consistency if needed (e.g., roster uses 'player_name', weekly_stats uses 'player_display_name')
+            if 'player_name' in live_week_df.columns and 'player_display_name' not in live_week_df.columns:
+                live_week_df = live_week_df.rename(columns={'player_name': 'player_display_name'})
+
+            logger.info(f"Successfully constructed live data for {len(live_week_df)} players in Week {week}.")
+            return live_week_df
+
+        except Exception as e:
+            logger.error(f"❌ Error constructing live week data: {e}")
+            return None
+    
     # =============================================================================
     # ESPN API - FREE
     # =============================================================================
@@ -163,324 +219,6 @@ class NFLDataSources:
         except Exception as e:
             logger.error(f"❌ ESPN injuries error for {team_abbr}: {e}")
             return None
-    
-    def _get_espn_roster(self, team_abbr: str) -> Optional[pd.DataFrame]:
-        """
-        Fetch current roster for a single NFL team from ESPN API.
-        
-        This is a private helper function used by get_live_week_data_espn() to
-        build the complete roster dataset for upcoming games.
-        
-        Args:
-            team_abbr: Team abbreviation (e.g., 'KC', 'BUF', 'SF')
-            
-        Returns:
-            DataFrame with columns: player_id, player_display_name, position, team
-            Returns None if API call fails or team is invalid
-            
-        Example:
-            >>> roster_df = self._get_espn_roster('KC')
-            >>> print(roster_df.head())
-               player_id  player_display_name  position  team
-            0  3139477    Patrick Mahomes      QB        KC
-            1  4040715    Travis Kelce         TE        KC
-        """
-        # Normalize team abbreviation (handles ESPN aliases like WSH -> WAS)
-        from config import normalize_team_abbr
-        team_abbr = normalize_team_abbr(team_abbr)
-        
-        # Validate team abbreviation
-        if team_abbr not in NFL_TEAMS:
-            logger.error(f"Invalid team abbreviation: {team_abbr}")
-            return None
-        
-        # Get ESPN team ID
-        espn_id = get_team_espn_id(team_abbr)
-        if not espn_id:
-            logger.error(f"No ESPN ID found for team {team_abbr}")
-            return None
-        
-        try:
-            # Construct roster URL
-            url = API_URLS['espn_roster'].format(team_id=espn_id)
-            
-            # Make API request
-            response = requests.get(url, timeout=10)
-            self._rate_limit('espn')
-            
-            if response.status_code != 200:
-                logger.warning(f"ESPN roster API returned status {response.status_code} for {team_abbr}")
-                return None
-            
-            # Parse JSON response
-            data = response.json()
-            
-            # Navigate to athletes list
-            if 'athletes' not in data:
-                logger.warning(f"No 'athletes' key in ESPN roster response for {team_abbr}")
-                return None
-            
-            athletes_groups = data['athletes']
-            
-            if not athletes_groups:
-                logger.warning(f"Empty roster returned for {team_abbr}")
-                return None
-            
-            # ESPN returns grouped data: offense, defense, specialTeam, etc.
-            # Each group has an 'items' array with the actual players
-            all_players = []
-            
-            for group in athletes_groups:
-                # Get the position group name (offense, defense, specialTeam)
-                group_name = group.get('position', 'unknown')
-                
-                # Get the items array for this group
-                items = group.get('items', [])
-                
-                logger.debug(f"Processing {group_name} group: {len(items)} players")
-                
-                # Extract player information from items
-                for athlete in items:
-                    try:
-                        # Extract required fields with fallbacks
-                        player_id = athlete.get('id')
-                        full_name = athlete.get('fullName') or athlete.get('displayName')
-                        
-                        # Get position - handle nested structure
-                        position_obj = athlete.get('position', {})
-                        if isinstance(position_obj, dict):
-                            position = position_obj.get('abbreviation') or position_obj.get('name')
-                        else:
-                            position = None
-                        
-                        # Skip if missing critical data
-                        if not all([player_id, full_name, position]):
-                            logger.debug(f"Skipping player with incomplete data: {athlete.get('id')}")
-                            continue
-                        
-                        # Only include relevant positions for betting
-                        if position not in RELEVANT_POSITIONS:
-                            continue
-                        
-                        all_players.append({
-                            'player_id': str(player_id),
-                            'player_display_name': full_name,
-                            'position': position,
-                            'team': team_abbr
-                        })
-                        
-                    except Exception as e:
-                        logger.debug(f"Error parsing player in {team_abbr} roster: {e}")
-                        continue
-            
-            if not all_players:
-                logger.warning(f"No valid players found in {team_abbr} roster after filtering")
-                return None
-            
-            # Create DataFrame
-            roster_df = pd.DataFrame(all_players)
-            
-            logger.info(f"✓ Fetched {len(roster_df)} players for {team_abbr} ({roster_df['position'].value_counts().to_dict()})")
-            
-            return roster_df
-            
-        except requests.exceptions.Timeout:
-            logger.error(f"Timeout fetching roster for {team_abbr}")
-            return None
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request error fetching roster for {team_abbr}: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Unexpected error fetching roster for {team_abbr}: {e}")
-            return None
-    
-    def get_live_week_data_espn(self, season: int, week: int) -> Optional[pd.DataFrame]:
-        """
-        Construct complete live week roster dataset for all teams playing in specified week.
-        
-        This is the "newspaper" function - it fetches who is playing THIS WEEK using
-        real-time ESPN data, without needing historical performance stats for the
-        upcoming games (which don't exist yet).
-        
-        The function:
-        1. Fetches the scoreboard to see which teams are playing
-        2. Fetches rosters for all teams in those games
-        3. Builds a DataFrame with player metadata and opponent matchups
-        4. Returns data structured to match historical data format
-        
-        Args:
-            season: NFL season year (e.g., 2025)
-            week: Week number (1-18)
-            
-        Returns:
-            DataFrame with columns:
-                - player_id: ESPN player ID
-                - player_display_name: Full player name
-                - position: Position abbreviation (QB, RB, WR, TE, K)
-                - team: Team abbreviation
-                - opponent: Opponent abbreviation
-                - season: Season year
-                - week: Week number
-            Returns None if unable to construct dataset
-            
-        Example:
-            >>> live_df = data_api.get_live_week_data_espn(season=2025, week=5)
-            >>> print(live_df.head())
-               player_id  player_display_name  position  team  opponent  season  week
-            0  3139477    Patrick Mahomes      QB        KC    BUF       2025    5
-            1  4040715    Travis Kelce         TE        KC    BUF       2025    5
-        """
-        logger.info(f"🗞️ Fetching live week data for Season {season}, Week {week}")
-        
-        # Step 1: Fetch scoreboard to get games
-        scoreboard = self.get_espn_scoreboard(week=week, season=season)
-        
-        if not scoreboard:
-            logger.error("Failed to fetch ESPN scoreboard - cannot build live week data")
-            return None
-        
-        # Step 2: Parse games from scoreboard
-        if 'events' not in scoreboard:
-            logger.error("No 'events' key in scoreboard response")
-            return None
-        
-        events = scoreboard['events']
-        
-        if not events:
-            logger.warning(f"No games found for Season {season}, Week {week}")
-            return None
-        
-        logger.info(f"Found {len(events)} game(s) scheduled for Week {week}")
-        
-        # Extract team matchups from games
-        games = []
-        for event in events:
-            try:
-                # Navigate to competitions (usually just one per event)
-                competitions = event.get('competitions', [])
-                if not competitions:
-                    continue
-                
-                competition = competitions[0]
-                competitors = competition.get('competitors', [])
-                
-                if len(competitors) != 2:
-                    logger.warning(f"Expected 2 competitors, found {len(competitors)}")
-                    continue
-                
-                # Identify home and away teams
-                home_team = None
-                away_team = None
-                
-                from config import normalize_team_abbr
-                for competitor in competitors:
-                    team_obj = competitor.get('team', {})
-                    team_abbr = team_obj.get('abbreviation')
-                    # Normalize ESPN abbreviations (e.g., WSH -> WAS, LA -> LAR)
-                    team_abbr = normalize_team_abbr(team_abbr)
-                    home_away = competitor.get('homeAway')
-                    
-                    if not team_abbr:
-                        continue
-                    
-                    if home_away == 'home':
-                        home_team = team_abbr
-                    elif home_away == 'away':
-                        away_team = team_abbr
-                
-                if home_team and away_team:
-                    games.append((home_team, away_team))
-                    logger.info(f"  Game: {away_team} @ {home_team}")
-                else:
-                    logger.warning(f"Could not determine home/away teams for event {event.get('id')}")
-                    
-            except Exception as e:
-                logger.error(f"Error parsing event: {e}")
-                continue
-        
-        if not games:
-            logger.error("No valid games parsed from scoreboard")
-            return None
-        
-        # Step 3: Create team-opponent mapping
-        team_matchups = []
-        for home_team, away_team in games:
-            team_matchups.append({'team': home_team, 'opponent': away_team})
-            team_matchups.append({'team': away_team, 'opponent': home_team})
-        
-        logger.info(f"Created matchups for {len(team_matchups)} team entries")
-        
-        # Step 4: Fetch rosters for all teams
-        all_rosters = []
-        unique_teams = set(tm['team'] for tm in team_matchups)
-        
-        logger.info(f"Fetching rosters for {len(unique_teams)} teams...")
-        
-        failed_teams = []
-        for team_abbr in sorted(unique_teams):
-            roster_df = self._get_espn_roster(team_abbr)
-            
-            if roster_df is not None and not roster_df.empty:
-                all_rosters.append(roster_df)
-            else:
-                failed_teams.append(team_abbr)
-                logger.warning(f"Failed to fetch roster for {team_abbr}")
-        
-        if failed_teams:
-            logger.warning(f"Failed to fetch rosters for {len(failed_teams)} team(s): {failed_teams}")
-        
-        if not all_rosters:
-            logger.error("No rosters fetched successfully - cannot build live week data")
-            return None
-        
-        # Step 5: Combine all rosters
-        combined_roster = pd.concat(all_rosters, ignore_index=True)
-        logger.info(f"Combined {len(combined_roster)} players from {len(all_rosters)} team rosters")
-        
-        # Step 6: Merge with matchups to add opponent information
-        matchup_df = pd.DataFrame(team_matchups)
-        live_data = combined_roster.merge(matchup_df, on='team', how='left')
-        
-        # Step 7: Add metadata columns
-        live_data['season'] = season
-        live_data['week'] = week
-        
-        # Step 8: Standardize column order to match historical data
-        column_order = [
-            'player_id',
-            'player_display_name',
-            'position',
-            'team',
-            'opponent',
-            'season',
-            'week'
-        ]
-        
-        # Ensure all columns exist
-        for col in column_order:
-            if col not in live_data.columns:
-                logger.error(f"Missing expected column: {col}")
-                return None
-        
-        live_data = live_data[column_order]
-        
-        # Step 9: Validation
-        missing_opponents = live_data['opponent'].isna().sum()
-        if missing_opponents > 0:
-            logger.warning(f"{missing_opponents} players missing opponent information")
-        
-        # Log summary statistics
-        logger.info("=" * 60)
-        logger.info("LIVE WEEK DATA SUMMARY")
-        logger.info("=" * 60)
-        logger.info(f"Season: {season}, Week: {week}")
-        logger.info(f"Total players: {len(live_data)}")
-        logger.info(f"Teams: {live_data['team'].nunique()}")
-        logger.info(f"Games: {len(games)}")
-        logger.info(f"Position breakdown: {live_data['position'].value_counts().to_dict()}")
-        logger.info("=" * 60)
-        
-        return live_data
     
     # =============================================================================
     # WEATHER API - FREE TIER

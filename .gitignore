@@ -1,14 +1,16 @@
-# --------
+# Create .gitignore
+cat > .gitignore << 'EOF'
+# Environment and API Keys
+.env
+*.env
+.env.local
+.env.production
+
 # Python
-# --------
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
-
-# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -22,87 +24,77 @@ parts/
 sdist/
 var/
 wheels/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+# Virtual Environment
+.venv/
+nfl/
+venv/
+env/
+ENV/
 
-# Unit test / coverage
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
+# Data Files (keep models but not raw data)
+data/*.csv
+data/*.json
+data/*.parquet
+data/**/*.parquet
+data/combined/*.parquet
+data/*.xlsx
+data/raw/
+data/processed/
+!data/.gitkeep
+!data/README.md
 
-# MyPy / Pyre / Pytype
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# Jupyter
+# Jupyter Notebooks
 .ipynb_checkpoints
 
-# Environments
-.env
-.venv/
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# IDEs / Editors
+# IDE
 .vscode/
 .idea/
-.ropeproject
-.spyderproject
-.spyproject
+*.swp
+*.swo
+*~
 
-# OS / macOS
+# OS
 .DS_Store
-.AppleDouble
-.LSOverride
-Icon
-
+.DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
-
-# MkDocs
-/site
+ehthumbs.db
+Thumbs.db
 
 # Logs
 *.log
+logs/
 
-# Project-specific
-# Ignore any folder named python3.10 anywhere (e.g., venv site-packages)
-**/python3.10/**
+# Model outputs (optional - you might want to track these)
+models/*.pkl
+models/*.joblib
+models/*.h5
 
-# Ignore local virtualenvs that live in these paths
-nfl/
-nfl-props-model/nfl/
+# Temporary files
+tmp/
+temp/
+*.tmp
 
-# Local database artifacts
-/databases/*.db
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
 
-# Private keys / secrets
+# pytest
+.pytest_cache/
+
+# Node
+node_modules/
+
+# Kalshi private key
 kalshi_private_key.pem
-
+nfl-props-model/kalshi_private_key.pem
+EOF
+pbp.duckdb

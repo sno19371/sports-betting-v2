@@ -1,0 +1,11 @@
+timestamp,player_name,prop_type,line,side,american_odds,decimal_odds,model_probability,market_probability,edge,expected_value,kelly_fraction,recommended_stake_pct
+2025-10-07T23:29:08.130567,Aaron Rodgers,receiving_yards,-10.000031252644767,Over,-110,1.909,0.99,0.5238,0.4662,0.89,0.05,5.00%
+2025-10-07T23:29:08.132310,Aaron Rodgers,receiving_yards,9.999968747355233,Under,-140,1.714,0.99,0.5834,0.4066,0.7,0.05,5.00%
+2025-10-07T23:29:08.133611,Marcedes Lewis,receiving_yards,-5.200006538474361,Over,-110,1.909,0.99,0.5238,0.4662,0.89,0.05,5.00%
+2025-10-07T23:29:08.134854,Marcedes Lewis,receiving_yards,14.799993461525638,Under,-140,1.714,0.99,0.5834,0.4066,0.7,0.05,5.00%
+2025-10-07T23:29:08.136292,Joe Flacco,receiving_yards,-9.9986871480707,Over,-110,1.909,0.99,0.5238,0.4662,0.89,0.05,5.00%
+2025-10-07T23:29:08.137430,Joe Flacco,receiving_yards,10.0013128519293,Under,-140,1.714,0.99,0.5834,0.4066,0.7,0.05,5.00%
+2025-10-07T23:29:08.138596,Andy Dalton,receiving_yards,-9.9986871480707,Over,-110,1.909,0.99,0.5238,0.4662,0.89,0.05,5.00%
+2025-10-07T23:29:08.139694,Andy Dalton,receiving_yards,10.0013128519293,Under,-140,1.714,0.99,0.5834,0.4066,0.7,0.05,5.00%
+2025-10-07T23:29:08.141491,Rodney McLeod,receiving_yards,-10.000031252644767,Over,-110,1.909,0.99,0.5238,0.4662,0.89,0.05,5.00%
+2025-10-07T23:29:08.142643,Rodney McLeod,receiving_yards,9.999968747355233,Under,-140,1.714,0.99,0.5834,0.4066,0.7,0.05,5.00%

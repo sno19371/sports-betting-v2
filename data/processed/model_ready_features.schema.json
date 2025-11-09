@@ -1,0 +1,631 @@
+{
+  "dataset_path": "data/processed/model_ready_features",
+  "generated_at": "2025-11-08T14:25:36.736187",
+  "row_count": 28026,
+  "columns": [
+    {
+      "name": "player_id",
+      "dtype": "object",
+      "nulls": 0,
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "player_name",
+      "dtype": "object",
+      "nulls": 0,
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "player_display_name",
+      "dtype": "object",
+      "nulls": 0,
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "position",
+      "dtype": "object",
+      "nulls": 0,
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "position_group",
+      "dtype": "object",
+      "nulls": 0,
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "headshot_url",
+      "dtype": "object",
+      "nulls": 0,
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "team",
+      "dtype": "object",
+      "nulls": 0,
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "season",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 2020.0,
+      "max": 2024.0
+    },
+    {
+      "name": "week",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 1.0,
+      "max": 22.0
+    },
+    {
+      "name": "season_type",
+      "dtype": "object",
+      "nulls": 0,
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "opponent_team",
+      "dtype": "object",
+      "nulls": 0,
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "completions",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 47.0
+    },
+    {
+      "name": "attempts",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 68.0
+    },
+    {
+      "name": "passing_yards",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": -7.0,
+      "max": 525.0
+    },
+    {
+      "name": "passing_tds",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 6.0
+    },
+    {
+      "name": "interceptions",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 5.0
+    },
+    {
+      "name": "sacks",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 10.0
+    },
+    {
+      "name": "sack_yards",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 82.0
+    },
+    {
+      "name": "sack_fumbles",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 4.0
+    },
+    {
+      "name": "sack_fumbles_lost",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 3.0
+    },
+    {
+      "name": "passing_air_yards",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": -17.0,
+      "max": 633.0
+    },
+    {
+      "name": "passing_yards_after_catch",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 280.0
+    },
+    {
+      "name": "passing_first_downs",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 29.0
+    },
+    {
+      "name": "passing_epa",
+      "dtype": "float32",
+      "nulls": 24523,
+      "min": -35.5648193359375,
+      "max": 33.18852615356445
+    },
+    {
+      "name": "passing_2pt_conversions",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 2.0
+    },
+    {
+      "name": "pacr",
+      "dtype": "float32",
+      "nulls": 24579,
+      "min": -0.25,
+      "max": 10.0
+    },
+    {
+      "name": "dakota",
+      "dtype": "float32",
+      "nulls": 25009,
+      "min": -0.23071248829364777,
+      "max": 0.5284702181816101
+    },
+    {
+      "name": "carries",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 37.0
+    },
+    {
+      "name": "rushing_yards",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": -28.0,
+      "max": 255.0
+    },
+    {
+      "name": "rushing_tds",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 6.0
+    },
+    {
+      "name": "rushing_fumbles",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 4.0
+    },
+    {
+      "name": "rushing_fumbles_lost",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 2.0
+    },
+    {
+      "name": "rushing_first_downs",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 15.0
+    },
+    {
+      "name": "rushing_epa",
+      "dtype": "float32",
+      "nulls": 16263,
+      "min": -15.350085258483887,
+      "max": 17.356536865234375
+    },
+    {
+      "name": "rushing_2pt_conversions",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 2.0
+    },
+    {
+      "name": "receptions",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 18.0
+    },
+    {
+      "name": "targets",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 22.0
+    },
+    {
+      "name": "receiving_yards",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": -17.0,
+      "max": 269.0
+    },
+    {
+      "name": "receiving_tds",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 4.0
+    },
+    {
+      "name": "receiving_fumbles",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 2.0
+    },
+    {
+      "name": "receiving_fumbles_lost",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 2.0
+    },
+    {
+      "name": "receiving_air_yards",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": -32.0,
+      "max": 334.0
+    },
+    {
+      "name": "receiving_yards_after_catch",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": -23.0,
+      "max": 153.0
+    },
+    {
+      "name": "receiving_first_downs",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 14.0
+    },
+    {
+      "name": "receiving_epa",
+      "dtype": "float32",
+      "nulls": 5395,
+      "min": -23.14002799987793,
+      "max": 23.6286563873291
+    },
+    {
+      "name": "receiving_2pt_conversions",
+      "dtype": "int32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 2.0
+    },
+    {
+      "name": "racr",
+      "dtype": "float32",
+      "nulls": 5550,
+      "min": -86.0,
+      "max": 116.0
+    },
+    {
+      "name": "target_share",
+      "dtype": "float32",
+      "nulls": 5395,
+      "min": 0.015625,
+      "max": 0.6666666865348816
+    },
+    {
+      "name": "air_yards_share",
+      "dtype": "float32",
+      "nulls": 5395,
+      "min": -1.7999999523162842,
+      "max": 1.8421052694320679
+    },
+    {
+      "name": "wopr",
+      "dtype": "float32",
+      "nulls": 5395,
+      "min": -0.6349999904632568,
+      "max": 1.7894736528396606
+    },
+    {
+      "name": "special_teams_tds",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 2.0
+    },
+    {
+      "name": "fantasy_points",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": -5.739999771118164,
+      "max": 53.20000076293945
+    },
+    {
+      "name": "fantasy_points_ppr",
+      "dtype": "float32",
+      "nulls": 0,
+      "min": -5.739999771118164,
+      "max": 57.900001525878906
+    },
+    {
+      "name": "spread_line",
+      "dtype": "float32",
+      "nulls": 3556,
+      "min": -20.5,
+      "max": 20.5
+    },
+    {
+      "name": "roof",
+      "dtype": "object",
+      "nulls": 3556,
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "wind",
+      "dtype": "float64",
+      "nulls": 12026,
+      "min": 0.4349597096443176,
+      "max": 31.254961013793945
+    },
+    {
+      "name": "temp",
+      "dtype": "float64",
+      "nulls": 12026,
+      "min": -1.659999966621399,
+      "max": 80.41999816894531
+    },
+    {
+      "name": "opponent",
+      "dtype": "object",
+      "nulls": 3556,
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "is_home",
+      "dtype": "object",
+      "nulls": 3556,
+      "min": null,
+      "max": null
+    },
+    {
+      "name": "is_dome",
+      "dtype": "bool",
+      "nulls": 0,
+      "min": 0.0,
+      "max": 1.0
+    },
+    {
+      "name": "targets_rolling_4g",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 17.5
+    },
+    {
+      "name": "carries_rolling_4g",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 31.25
+    },
+    {
+      "name": "receiving_yards_rolling_4g",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": -7.0,
+      "max": 184.0
+    },
+    {
+      "name": "rushing_yards_rolling_4g",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": -28.0,
+      "max": 177.5
+    },
+    {
+      "name": "receptions_rolling_4g",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 14.0
+    },
+    {
+      "name": "receiving_tds_rolling_4g",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 2.0
+    },
+    {
+      "name": "rushing_tds_rolling_4g",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 3.0
+    },
+    {
+      "name": "passing_yards_rolling_4g",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": -3.0,
+      "max": 450.0
+    },
+    {
+      "name": "passing_tds_rolling_4g",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 4.666666666666667
+    },
+    {
+      "name": "completions_rolling_4g",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 37.0
+    },
+    {
+      "name": "targets_ewma_4",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 17.0
+    },
+    {
+      "name": "carries_ewma_4",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 31.0
+    },
+    {
+      "name": "receiving_yards_ewma_4",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": -7.0,
+      "max": 184.0
+    },
+    {
+      "name": "rushing_yards_ewma_4",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": -28.0,
+      "max": 177.136405642412
+    },
+    {
+      "name": "receptions_ewma_4",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 14.0
+    },
+    {
+      "name": "receiving_tds_ewma_4",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 2.112618610528209
+    },
+    {
+      "name": "rushing_tds_ewma_4",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 3.0
+    },
+    {
+      "name": "passing_yards_ewma_4",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": -3.0,
+      "max": 450.0
+    },
+    {
+      "name": "passing_tds_ewma_4",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 4.640000000000001
+    },
+    {
+      "name": "completions_ewma_4",
+      "dtype": "float64",
+      "nulls": 1260,
+      "min": 0.0,
+      "max": 37.0
+    },
+    {
+      "name": "matchup_receiving_yards_rank",
+      "dtype": "float64",
+      "nulls": 0,
+      "min": 0.013888888888888888,
+      "max": 1.0
+    },
+    {
+      "name": "matchup_rushing_yards_rank",
+      "dtype": "float64",
+      "nulls": 0,
+      "min": 0.019230769230769232,
+      "max": 1.0
+    },
+    {
+      "name": "matchup_receptions_rank",
+      "dtype": "float64",
+      "nulls": 0,
+      "min": 0.015625,
+      "max": 1.0
+    },
+    {
+      "name": "matchup_receiving_tds_rank",
+      "dtype": "float64",
+      "nulls": 0,
+      "min": 0.013043478260869566,
+      "max": 1.0
+    },
+    {
+      "name": "matchup_rushing_tds_rank",
+      "dtype": "float64",
+      "nulls": 0,
+      "min": 0.014084507042253521,
+      "max": 1.0
+    },
+    {
+      "name": "matchup_passing_yards_rank",
+      "dtype": "float64",
+      "nulls": 0,
+      "min": 0.023255813953488372,
+      "max": 1.0
+    },
+    {
+      "name": "matchup_passing_tds_rank",
+      "dtype": "float64",
+      "nulls": 0,
+      "min": 0.023255813953488372,
+      "max": 1.0
+    },
+    {
+      "name": "passing_penalty",
+      "dtype": "float64",
+      "nulls": 0,
+      "min": 0.85,
+      "max": 1.0
+    },
+    {
+      "name": "game_script_factor",
+      "dtype": "int64",
+      "nulls": 0,
+      "min": -1.0,
+      "max": 1.0
+    }
+  ],
+  "notes": "model-ready features; partitioned season/week; snappy parquet"
+}

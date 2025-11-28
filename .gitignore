@@ -106,3 +106,11 @@ nfl-props-model/nfl/
 # Private keys / secrets
 kalshi_private_key.pem
 
+node_modules/*
+
+**.duckdb
+**.duckdb.wal
+**.parquet
+
+# Excel temporary lock files
+~$*.xlsx

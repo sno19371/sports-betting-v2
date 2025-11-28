@@ -1,11 +1,13 @@
-# rb_rushyards_tcn_lgbm_mvp.py
-# MVP: 6-game Rush-TCN -> LightGBM for RB rushing yards, with weather.
+# rb_rushyards_tcn_lgbm_odds_v2.py
+# MVP: 6-game Rush-TCN -> LightGBM for RB rushing yards
+# NOW INCLUDES: Weather + Betting Odds (Lines & Totals)
 
 import os
 import logging
 import json
 import math
 from typing import List, Tuple
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -25,7 +27,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
 )
-log = logging.getLogger("rb_rush_mvp")
+log = logging.getLogger("rb_rush_odds")
 
 
 # ============================================================
@@ -33,7 +35,7 @@ log = logging.getLogger("rb_rush_mvp")
 # ============================================================
 PARQUET_PATH = os.environ.get(
     "RB_PARQUET_PATH",
-    r"C:\Users\Alex\Desktop\sports-betting-v2\data\processed\player_games_with_weather_3h_patched.parquet"
+    r"C:\Users\Alex\Desktop\sports-betting-v2\data\processed\player_games_with_odds_flexed_fixed.parquet"
 )
 
 ARTIFACT_DIR = os.path.join(
@@ -99,6 +101,7 @@ def build_rb_windows(
       y:     (N,)
       meta:  DataFrame of rows aligned with X_seq/y
     """
+    # Sort ensures we build history chronologically
     df = df.sort_values(["player_id", "season", "week", "game_date"]).reset_index(drop=True)
 
     windows = []
@@ -136,6 +139,9 @@ def build_rb_windows(
 # ============================================================
 def main():
     log.info(f"Loading RB dataset: {PARQUET_PATH}")
+    if not os.path.exists(PARQUET_PATH):
+        raise FileNotFoundError(f"Parquet not found at {PARQUET_PATH}")
+        
     df = pd.read_parquet(PARQUET_PATH)
     log.info(f"Loaded {len(df)} rows, {len(df.columns)} columns")
 
@@ -149,7 +155,7 @@ def main():
     rb = rb[~rb["rb_rush_yards"].isna()].copy()
     log.info("RB subset: %d rows, %d unique RBs", len(rb), rb["player_id"].nunique())
 
-    # 2) TCN feature columns
+    # 2) TCN feature columns (Player History)
     TCN_COLS = [
         "rb_carries",
         "rb_rush_yards",
@@ -186,18 +192,6 @@ def main():
     lgb_val_mask = meta["season"] == 2023
     lgb_test_mask = meta["season"] == 2024
 
-    log.info(
-        "TCN train=%d, val=%d",
-        tcn_train_mask.sum(),
-        tcn_val_mask.sum(),
-    )
-    log.info(
-        "LGB train=%d, val=%d, test=%d",
-        lgb_train_mask.sum(),
-        lgb_val_mask.sum(),
-        lgb_test_mask.sum(),
-    )
-
     # 5) Prepare tensors
     X_train = torch.tensor(X_seq[tcn_train_mask], dtype=torch.float32)
     y_train = torch.tensor(y[tcn_train_mask], dtype=torch.float32)
@@ -210,6 +204,7 @@ def main():
     loss_fn = nn.MSELoss()
 
     # 6) Train TCN
+    log.info("Training TCN Encoder...")
     EPOCHS = 25
     for epoch in range(1, EPOCHS + 1):
         model.train()
@@ -225,10 +220,11 @@ def main():
             val_mse = loss_fn(y_hat_val, y_val.to(device)).item()
             val_rmse = math.sqrt(val_mse)
 
-        log.info(
-            "Epoch %02d | TCN train MSE=%.2f | val RMSE=%.2f yards",
-            epoch, loss.item(), val_rmse
-        )
+        if epoch % 5 == 0:
+            log.info(
+                "Epoch %02d | TCN train MSE=%.2f | val RMSE=%.2f yards",
+                epoch, loss.item(), val_rmse
+            )
 
     # 7) Get embeddings for all rows
     model.eval()
@@ -236,29 +232,72 @@ def main():
         _, embeds = model(torch.tensor(X_seq, dtype=torch.float32).to(device))
     embeds = embeds.cpu().numpy()        # (N, EMBED_DIM)
 
-    # 8) LightGBM features: embeddings + weather
-    WEATHER_COLS = ["temp_effective", "wind_effective", "precip_3h_mm", "is_dome"]
-    for c in WEATHER_COLS:
-        if c not in meta.columns and c not in rb.columns:
-            # meta is per-window; weather columns are in rb (aligned by index)
-            # We'll pull them from rb using meta's original index
-            pass
+    # 8) LightGBM features: Context (Weather + Odds + Game Info)
+    # -------------------------------------------------------------------------
+    # FEATURE ENGINEERING: ODDS & SPREADS
+    # -------------------------------------------------------------------------
+    # We need to map 'home_line_close' to the specific player's perspective.
+    # If the player is on the Home Team, their spread is 'home_line_close'.
+    # If they are on the Away Team, their spread is 'away_line_close'.
+    
+    # meta contains the metadata for our windows, we need to add the engineered features there
+    # But first we need to make sure the columns exist in meta or map them from rb
+    
+    # Re-align rb data to meta (meta is just a subset of rb rows, preserved order)
+    # We can rely on the fact that build_rb_windows preserves the row content in 'meta'
+    
+    # 1. Fill missing Odds with logical defaults (0.0 for spread, league avg 45.0 for total)
+    if 'home_line_close' in meta.columns:
+        meta['home_line_close'] = meta['home_line_close'].fillna(0.0)
+        meta['away_line_close'] = meta['away_line_close'].fillna(0.0)
+        meta['total_score_open'] = meta['total_score_open'].fillna(44.5)
+    else:
+        log.warning("Odds columns not found in meta! Check parquet file.")
 
-    # meta rows correspond to rb rows; use rb for weather
-    rb_indexed = rb.reset_index(drop=True)
-    # sanity: meta and rb_indexed should align on row counts
-    if len(rb_indexed) != len(meta):
-        log.warning("meta rows (%d) != rb rows (%d); using meta indices where possible.", len(meta), len(rb_indexed))
+    # 2. Determine if Player is Home or Away
+    # We assume 'posteam' == 'home_team' means home.
+    meta['is_home'] = (meta['posteam'] == meta['home_team']).astype(int)
 
-    weather_mat = []
-    for c in WEATHER_COLS:
-        if c not in rb_indexed.columns:
-            log.warning("Weather col %s missing in RB table; filling with 0.", c)
-            rb_indexed[c] = 0.0
-        weather_mat.append(rb_indexed[c].to_numpy(dtype=np.float32))
-    weather_mat = np.stack(weather_mat, axis=1)  # (N, 4)
+    # 3. Create 'posteam_spread'
+    # Logic: if is_home, take home_line; else take away_line
+    meta['posteam_spread'] = np.where(
+        meta['is_home'] == 1, 
+        meta['home_line_close'], 
+        meta['away_line_close']
+    )
 
-    X_lgb = np.hstack([embeds, weather_mat])     # (N, EMBED_DIM+4)
+    # 4. Create 'implied_team_total'
+    # Formula: (Total / 2) - (Spread / 2) 
+    # NOTE: This assumes standard notation where (-) is favored.
+    # Ex: Total 50, Spread -10 (Favored). Team Total = 25 - (-5) = 30. Correct.
+    meta['implied_team_total'] = (meta['total_score_open'] / 2) - (meta['posteam_spread'] / 2)
+
+    # List of Context Columns to feed into LightGBM
+    CONTEXT_COLS = [
+        # Weather
+        "temp_effective", "wind_effective", "precip_3h_mm", "is_dome",
+        # Odds (Raw)
+        "total_score_open",
+        # Odds (Engineered)
+        "posteam_spread", 
+        "implied_team_total",
+        "is_home"
+    ]
+
+    context_mat = []
+    for c in CONTEXT_COLS:
+        if c not in meta.columns:
+            # Fallback if column completely missing
+            log.warning("Context col %s missing; filling with 0.", c)
+            meta[c] = 0.0
+        
+        # Ensure float
+        context_mat.append(meta[c].to_numpy(dtype=np.float32))
+
+    context_mat = np.stack(context_mat, axis=1)  # (N, n_context_cols)
+
+    # Combine TCN Embeddings + Context Features
+    X_lgb = np.hstack([embeds, context_mat])     # (N, EMBED_DIM + n_context_cols)
 
     # 9) Split for LightGBM
     X_train_lgb = X_lgb[lgb_train_mask]
@@ -286,7 +325,7 @@ def main():
         "seed": SEED,
     }
 
-    log.info("Training LightGBM head for RB rushing yards…")
+    log.info("Training LightGBM head (Embeds + Odds + Weather)...")
     callbacks = [
         early_stopping(stopping_rounds=200),
         log_evaluation(period=50),
@@ -317,21 +356,48 @@ def main():
         "val_2023": {"mae": float(val_mae), "rmse": float(val_rmse)},
         "test_2024": {"mae": float(test_mae), "rmse": float(test_rmse)},
     }
-    with open(os.path.join(ARTIFACT_DIR, "metrics.json"), "w") as f:
-        json.dump(metrics, f, indent=2)
+    # Append block to metrics log (keeps history)
+    metrics_path = os.path.join(ARTIFACT_DIR, "metrics.json")
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with open(metrics_path, "a", encoding="utf-8") as f:
+        f.write("\n-----\n")
+        f.write(f"{ts}\n")
+        f.write("After adding vegas lines\n")
+        f.write(json.dumps(metrics, indent=2))
+        f.write("\n")
 
     # Save preds for inspection
     meta_val = meta[lgb_val_mask].copy()
     meta_val["y_true"] = y_val_lgb
     meta_val["y_pred"] = val_pred
-    meta_val.to_csv(os.path.join(ARTIFACT_DIR, "preds_val_2023.csv"), index=False)
+    # Save odds cols for debugging
+    cols_to_save = ["player", "season", "week", "game_date", "posteam", "posteam_spread", "implied_team_total", "y_true", "y_pred"]
+    preds_val_path = os.path.join(ARTIFACT_DIR, "preds_val_2023.csv")
+    if os.path.isfile(preds_val_path):
+        with open(preds_val_path, "a", encoding="utf-8") as f:
+            f.write("\n-----\n")
+            f.write(f"{ts}\n")
+            f.write("After adding vegas lines\n")
+    # Write a fresh header for each appended block for readability
+    meta_val[cols_to_save].to_csv(preds_val_path, mode="a", index=False, header=True)
 
     meta_test = meta[lgb_test_mask].copy()
     meta_test["y_true"] = y_test_lgb
     meta_test["y_pred"] = test_pred
-    meta_test.to_csv(os.path.join(ARTIFACT_DIR, "preds_test_2024.csv"), index=False)
+    preds_test_path = os.path.join(ARTIFACT_DIR, "preds_test_2024.csv")
+    if os.path.isfile(preds_test_path):
+        with open(preds_test_path, "a", encoding="utf-8") as f:
+            f.write("\n-----\n")
+            f.write(f"{ts}\n")
+            f.write("After adding vegas lines\n")
+    meta_test[cols_to_save].to_csv(preds_test_path, mode="a", index=False, header=True)
 
-    with open(os.path.join(ARTIFACT_DIR, "results.txt"), "w") as f:
+    # Append to results.txt with separators
+    results_path = os.path.join(ARTIFACT_DIR, "results.txt")
+    with open(results_path, "a", encoding="utf-8") as f:
+        f.write("\n-----\n")
+        f.write(f"{ts}\n")
+        f.write("After adding vegas lines\n")
         f.write(f"[Val 2023] MAE={val_mae:.3f} | RMSE={val_rmse:.3f}\n")
         f.write(f"[Test 2024] MAE={test_mae:.3f} | RMSE={test_rmse:.3f}\n")
 

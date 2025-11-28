@@ -1,2 +1,8 @@
 [Val 2023] MAE=21.437 | RMSE=28.621
 [Test 2024] MAE=22.604 | RMSE=29.866
+
+-----
+2025-11-28 14:35:23
+After adding vegas lines
+[Val 2023] MAE=21.402 | RMSE=28.313
+[Test 2024] MAE=22.515 | RMSE=29.755

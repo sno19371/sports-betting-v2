@@ -35,7 +35,7 @@ WEATHER_JSON_PATH = SCRIPT_DIR / "nfl_games_weather.json"
 DEPTH_CHART_JSON_PATH = SCRIPT_DIR / "nfl_rbs_depth_chart.json"
 
 # Output
-OUTPUT_PATH = SCRIPT_DIR / "player_model_rows.json"
+OUTPUT_PATH = SCRIPT_DIR / "player_model_rows_curr.json"
 
 # Model parameters (from train_rush_volume_model_v10_curr.py)
 L = 6  # Window size (last 6 weeks)
@@ -508,7 +508,8 @@ def main():
             "implied_game_script": team_spread,
             
             # Weather
-            "wind_effective": wind_effective,
+            "wind_effective": wind_ef
+            fective,
             "is_dome": is_dome,
             
             # Role

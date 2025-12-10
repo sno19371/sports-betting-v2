@@ -3,7 +3,7 @@ import json
 import time
 import requests
 from dotenv import load_dotenv
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 # --- CONFIGURATION ---
 load_dotenv()
@@ -12,6 +12,7 @@ BASE_URL = 'https://api.the-odds-api.com/v4/sports'
 SPORT = 'americanfootball_nfl'
 PROP_MARKET = 'player_rush_attempts' 
 CACHE_DIR = 'odds_history'
+DAYS_AHEAD = 3  # Only fetch games within this many days
 
 if not API_KEY:
     raise ValueError("API Key not found in .env file")
@@ -151,8 +152,14 @@ def main():
         away_team = game['away_team']
         commence_time = datetime.fromisoformat(game['commence_time'].replace('Z', '+00:00'))
 
-        # Time Filter
+        # Time Filter: skip past games
         if commence_time < now:
+            continue
+        
+        # Time Filter: skip games too far in the future
+        max_future = now + timedelta(days=DAYS_AHEAD)
+        if commence_time > max_future:
+            print(f"⏭️ Skipping {away_team} @ {home_team} (more than {DAYS_AHEAD} days away)")
             continue
         
         # Pass the specific lines for this game into the prop fetcher

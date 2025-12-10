@@ -1,4 +1,3 @@
-# sports-
 to bet on a new week:
 
 
@@ -7,7 +6,7 @@ UPDATE OUR PARQUET FILE WITH DATA FROM PREVIOUS WEEK:
     run xlsx_to_csv.py to confert to csv
 
 
-    get the updates to play_by_play_2025 parquet file from https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2025.csv
+    get the updates to play_by_play_2025 parquet file from https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2025.parquet
 
     re-run the pbp combine script to generate a new pbp_combined_curr.parquet file
 
@@ -21,8 +20,10 @@ UPDATE OUR PARQUET FILE WITH DATA FROM PREVIOUS WEEK:
 
     run the combine_roster_weekly script to generate a new roster_weekly_combined_curr.parquet file
 
+    run build_rb_combined_curr_v2.py to rebuild rb_combined_curr_v2_[date_of_generation].parquet with all of the updated data
+
 GET CURRENT DATA FOR PLACING BETS:
-    run get_rush_attempts_lines_from_api_curr_v1 in scripts to generate json of odds for the rush attempts and the over/under and spread datapoints
+    run get_rush_attempts_lines_from_api_curr_v1.py in scripts to generate json of odds for the rush attempts and the over/under and spread datapoints
 
     run get_all_rbs_injury_status_curr_v1 to get current rb injuries
 
@@ -37,4 +38,4 @@ GET CURRENT DATA FOR PLACING BETS:
     
     MONEY IN ACCOUNTS:
     BetMGM $50
-    
+    Fanduel $50

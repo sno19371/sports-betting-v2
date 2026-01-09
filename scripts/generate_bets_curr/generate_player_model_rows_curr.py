@@ -29,7 +29,7 @@ SCRIPT_DIR = Path(__file__).parent
 BASE_DIR = Path(__file__).parent.parent.parent / "data" / "processed"
 
 # Input files
-HISTORICAL_DATA_PATH = BASE_DIR / "rb_combined_curr_v2.parquet"
+HISTORICAL_DATA_PATH = BASE_DIR / "rb_combined_curr_v2_01_09_2026.parquet"
 ODDS_HISTORY_DIR = SCRIPT_DIR / "odds_history"
 WEATHER_JSON_PATH = SCRIPT_DIR / "nfl_games_weather.json"
 DEPTH_CHART_JSON_PATH = SCRIPT_DIR / "nfl_rbs_depth_chart.json"
@@ -508,8 +508,7 @@ def main():
             "implied_game_script": team_spread,
             
             # Weather
-            "wind_effective": wind_ef
-            fective,
+            "wind_effective": wind_effective,
             "is_dome": is_dome,
             
             # Role
